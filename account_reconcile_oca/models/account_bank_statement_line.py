@@ -5,7 +5,6 @@ from datetime import timedelta
 
 from dateutil import rrule
 from dateutil.relativedelta import relativedelta
-
 from odoo import Command, _, api, fields, models
 from odoo.exceptions import UserError
 from odoo.fields import first
@@ -18,9 +17,9 @@ class AccountBankStatementLine(models.Model):
 
     reconcile_data_info = fields.Serialized(inverse="_inverse_reconcile_data_info")
     reconcile_mode = fields.Selection(
-        selection=lambda self: self.env["account.journal"]
-        ._fields["reconcile_mode"]
-        .selection
+        selection=lambda self: (
+            self.env["account.journal"]._fields["reconcile_mode"].selection
+        )
     )
     company_id = fields.Many2one(related="journal_id.company_id")
     reconcile_data = fields.Serialized()
@@ -309,7 +308,6 @@ class AccountBankStatementLine(models.Model):
                     }
                 )
             else:
-
                 suspense_line = {
                     "reference": "reconcile_auxiliary;%s" % reconcile_auxiliary_id,
                     "id": False,
@@ -727,8 +725,10 @@ class AccountBankStatementLine(models.Model):
                             data += lines
                         continue
                     partial = partial_lines.filtered(
-                        lambda r: r.debit_move_id == reconciled_line
-                        or r.credit_move_id == reconciled_line
+                        lambda r: (
+                            r.debit_move_id == reconciled_line
+                            or r.credit_move_id == reconciled_line
+                        )
                     )
                     partial_amount = sum(
                         partial.filtered(
@@ -777,8 +777,10 @@ class AccountBankStatementLine(models.Model):
 
     def _all_partials_lines(self, lines):
         reconciliation_lines = lines.filtered(
-            lambda x: x.account_id.reconcile
-            or x.account_id.account_type in ("asset_cash", "liability_credit_card")
+            lambda x: (
+                x.account_id.reconcile
+                or x.account_id.account_type in ("asset_cash", "liability_credit_card")
+            )
         )
         current_lines = reconciliation_lines
         current_partials = self.env["account.partial.reconcile"]
@@ -833,6 +835,7 @@ class AccountBankStatementLine(models.Model):
                         check_move_validity=False,
                         skip_sync_invoice=True,
                         skip_invoice_sync=True,
+                        skip_account_move_synchronization=True,
                     )
                     .create(self._reconcile_move_line_vals(line_vals))
                 )
@@ -874,6 +877,7 @@ class AccountBankStatementLine(models.Model):
                         check_move_validity=False,
                         skip_sync_invoice=True,
                         skip_invoice_sync=True,
+                        skip_account_move_synchronization=True,
                     )
                     .create(line_data)
                 )
@@ -900,7 +904,11 @@ class AccountBankStatementLine(models.Model):
                     raise UserError(_("No supense lines are allowed when reconciling"))
                 line = (
                     self.env["account.move.line"]
-                    .with_context(check_move_validity=False, skip_invoice_sync=True)
+                    .with_context(
+                        check_move_validity=False,
+                        skip_invoice_sync=True,
+                        skip_account_move_synchronization=True,
+                    )
                     .create(self._reconcile_move_line_vals(line_vals, move.id))
                 )
                 if line_vals.get("counterpart_line_ids") and line.account_id.reconcile:
@@ -931,8 +939,10 @@ class AccountBankStatementLine(models.Model):
         to_reverse = (
             self.line_ids._all_reconciled_lines()
             .filtered(
-                lambda line: line.move_id != self.move_id
-                and (line.matched_debit_ids or line.matched_credit_ids)
+                lambda line: (
+                    line.move_id != self.move_id
+                    and (line.matched_debit_ids or line.matched_credit_ids)
+                )
             )
             .mapped("move_id")
         )
@@ -1063,7 +1073,6 @@ class AccountBankStatementLine(models.Model):
             )
         ):
             for st_line in self.with_context(skip_account_move_synchronization=True):
-
                 (
                     liquidity_lines,
                     suspense_lines,
